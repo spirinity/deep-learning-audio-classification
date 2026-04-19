@@ -38,30 +38,7 @@ and save the file to `data/input/`.
 
 ---
 
-## Step 3: Download ESC-50 label CSV (hanya CSV, bukan dataset audio)
-
-Kita hanya butuh file CSV berisi nama 50 label — ukurannya beberapa KB saja.
-
-**Windows (PowerShell):**
-```powershell
-New-Item -ItemType Directory -Force -Path "data/input/ESC-50/meta" | Out-Null
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv" `
-  -OutFile "data/input/ESC-50/meta/esc50.csv"
-```
-
-**Linux/Mac:**
-```bash
-mkdir -p data/input/ESC-50/meta
-wget https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv \
-  -O data/input/ESC-50/meta/esc50.csv
-```
-
-Required file: `data/input/ESC-50/meta/esc50.csv` which the classifier uses for label names.
-
----
-
-## Step 4: Verify file structure
+## Step 3: Verify file structure
 
 After setup, your directory should look like:
 
@@ -72,10 +49,10 @@ audio_text_proto/
 ├── requirements_app.txt
 ├── data/
 │   ├── input/
-│   │   ├── 630k-audioset-fusion-best.pt   ✅ ~600 MB
+│   │   ├── 630k-audioset-fusion-best.pt   ✅ ~600 MB (from step 2)
 │   │   └── ESC-50/
 │   │       └── meta/
-│   │           └── esc50.csv              ✅ ~50 KB
+│   │           └── esc50.csv              ✅ ~95 KB (already present)
 │   └── demo/
 │       ├── mean_embd_tensor_esc50_clap_zs.pt  ✅ already present
 │       └── airplane_demo.wav                   ✅ already present
@@ -84,7 +61,7 @@ audio_text_proto/
 
 ---
 
-## Step 5: Run the app
+## Step 4: Run the app
 
 ```bash
 streamlit run app.py

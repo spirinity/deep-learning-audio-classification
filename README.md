@@ -68,28 +68,7 @@ wget https://huggingface.co/lukewys/laion_clap/resolve/main/630k-audioset-fusion
 
 Atau download manual dari: https://huggingface.co/lukewys/laion_clap/resolve/main/630k-audioset-fusion-best.pt
 
-### 4. Download ESC-50 label CSV
-
-Kita hanya butuh file CSV-nya saja (bukan seluruh dataset audio).
-
-**Windows (PowerShell):**
-```powershell
-New-Item -ItemType Directory -Force -Path "data/input/ESC-50/meta" | Out-Null
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv" `
-  -OutFile "data/input/ESC-50/meta/esc50.csv"
-```
-
-**Linux/Mac:**
-```bash
-mkdir -p data/input/ESC-50/meta
-wget https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv \
-  -O data/input/ESC-50/meta/esc50.csv
-```
-
-> File CSV ini hanya berisi nama 50 label kelas — ukurannya beberapa KB saja.
-
-### 5. Verifikasi Struktur File
+### 4. Verifikasi Struktur File
 
 ```
 audio_text_proto/
@@ -99,12 +78,12 @@ audio_text_proto/
 ├── data/
 │   ├── input/
 │   │   ├── 630k-audioset-fusion-best.pt   ✅ download step 3
-│   │   └── ESC-50/meta/esc50.csv          ✅ clone step 4
+│   │   └── ESC-50/meta/esc50.csv          ✅ sudah ada di repo
 │   └── demo/
 │       └── mean_embd_tensor_esc50_clap_zs.pt  ✅ sudah ada di repo
 ```
 
-### 6. Jalankan App
+### 5. Jalankan App
 
 ```bash
 streamlit run app.py
