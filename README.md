@@ -68,16 +68,26 @@ wget https://huggingface.co/lukewys/laion_clap/resolve/main/630k-audioset-fusion
 
 Atau download manual dari: https://huggingface.co/lukewys/laion_clap/resolve/main/630k-audioset-fusion-best.pt
 
-### 4. Clone ESC-50 (untuk label CSV)
+### 4. Download ESC-50 label CSV
 
-```bash
-cd data/input
-git clone https://github.com/karolpiczak/ESC-50.git
-cd ../..
+Kita hanya butuh file CSV-nya saja (bukan seluruh dataset audio).
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force -Path "data/input/ESC-50/meta" | Out-Null
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv" `
+  -OutFile "data/input/ESC-50/meta/esc50.csv"
 ```
 
-> File yang dibutuhkan hanya: `data/input/ESC-50/meta/esc50.csv`  
-> File audio ESC-50 tidak diperlukan untuk inference.
+**Linux/Mac:**
+```bash
+mkdir -p data/input/ESC-50/meta
+wget https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv \
+  -O data/input/ESC-50/meta/esc50.csv
+```
+
+> File CSV ini hanya berisi nama 50 label kelas — ukurannya beberapa KB saja.
 
 ### 5. Verifikasi Struktur File
 

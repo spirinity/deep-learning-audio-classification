@@ -38,14 +38,26 @@ and save the file to `data/input/`.
 
 ---
 
-## Step 3: Clone ESC-50 dataset (for label CSV)
+## Step 3: Download ESC-50 label CSV (hanya CSV, bukan dataset audio)
 
-```bash
-cd data/input
-git clone https://github.com/karolpiczak/ESC-50.git
+Kita hanya butuh file CSV berisi nama 50 label — ukurannya beberapa KB saja.
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force -Path "data/input/ESC-50/meta" | Out-Null
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv" `
+  -OutFile "data/input/ESC-50/meta/esc50.csv"
 ```
 
-This provides `data/input/ESC-50/meta/esc50.csv` which the classifier uses for label names.
+**Linux/Mac:**
+```bash
+mkdir -p data/input/ESC-50/meta
+wget https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv \
+  -O data/input/ESC-50/meta/esc50.csv
+```
+
+Required file: `data/input/ESC-50/meta/esc50.csv` which the classifier uses for label names.
 
 ---
 
