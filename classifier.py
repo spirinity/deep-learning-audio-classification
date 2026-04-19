@@ -132,8 +132,7 @@ class SoundClassifier:
         if not os.path.exists(self.label_csv_path):
             raise FileNotFoundError(
                 f"ESC-50 CSV not found at: {self.label_csv_path}\n"
-                "Please clone the ESC-50 dataset:\n"
-                "  cd data/input && git clone https://github.com/karolpiczak/ESC-50.git"
+                "This file should be bundled with the repository at: data/labels/esc50.csv"
             )
         df = pd.read_csv(self.label_csv_path)
         df["category"] = df["category"].apply(lambda x: " ".join(x.split("_")))

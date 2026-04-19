@@ -30,7 +30,7 @@ st.set_page_config(
 BASE_DIR        = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH      = os.path.join(BASE_DIR, "data", "input", "630k-audioset-fusion-best.pt")
 PROTOTYPE_PATH  = os.path.join(BASE_DIR, "data", "demo", "mean_embd_tensor_esc50_clap_zs.pt")
-LABEL_CSV_PATH  = os.path.join(BASE_DIR, "data", "input", "ESC-50", "meta", "esc50.csv")
+LABEL_CSV_PATH  = os.path.join(BASE_DIR, "data", "labels", "esc50.csv")
 TEMP_DIR        = os.path.join(BASE_DIR, "temp")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
