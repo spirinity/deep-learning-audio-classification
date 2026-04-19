@@ -1,0 +1,21 @@
+# Sound Classifier Web App — Dependencies
+# Install with: pip install -r requirements_app.txt
+
+# ── Streamlit UI ──
+streamlit>=1.28.0
+plotly>=5.15.0
+
+# ── LAION-CLAP (from paper repo) ──
+laion-clap
+
+# ── Deep learning ──
+torch>=1.11.0
+torchaudio
+
+# ── Audio processing ──
+librosa
+soundfile
+
+# ── Data / utils ──
+numpy
+pandas

@@ -1,0 +1,51 @@
+# ─── Python ───────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.Python
+
+# ─── Virtual environments ─────────────────
+venv/
+env/
+.env
+*.env
+
+# ─── IDE ──────────────────────────────────
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# ─── Jupyter ──────────────────────────────
+.ipynb_checkpoints/
+
+# ─── Logs & outputs ───────────────────────
+*.out
+*.log
+
+# ─── Large model files (download manually) ─
+data/input/630k-audioset-fusion-best.pt
+
+# ─── ESC-50 audio files (not needed for inference) ─
+data/input/ESC-50/audio/
+data/input/ESC-50/ESC-50-master/
+
+# ─── Temporary uploaded audio ─────────────
+temp/
+
+# ─── Other large data files ───────────────
+data/processed/
+data/input/FSD50K/
+data/input/US8k/
+
+# ─── Streamlit cache ──────────────────────
+.streamlit/secrets.toml
+
+# ─── Keep these (small, needed for inference) ─
+!data/demo/mean_embd_tensor_esc50_clap_zs.pt
+!data/demo/mean_embd_tensor_esc50_audioclip_zs.pt
+!data/demo/airplane_demo.wav

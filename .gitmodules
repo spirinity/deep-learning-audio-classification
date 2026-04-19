@@ -1,0 +1,3 @@
+[submodule "scripts/ref_repo/AudioCLIP"]
+	path = scripts/ref_repo/AudioCLIP
+	url = git@github.com:AndreyGuzhov/AudioCLIP.git

@@ -1,0 +1,11 @@
+[server]
+# Reduce watcher noise from large packages like transformers
+fileWatcherType = "poll"
+runOnSave = true
+
+[browser]
+gatherUsageStats = false
+
+[logger]
+# Suppress non-fatal module inspection warnings
+level = "warning"
