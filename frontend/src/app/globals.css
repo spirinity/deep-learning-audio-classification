@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme based on Cursor's DESIGN.md (warm editorial light):
+ * cream canvas, warm near-black ink, scarce Cursor Orange CTA,
+ * hairline-only depth (no shadows, no gradients).
+ */
+:root {
+  --radius: 0.5rem; /* 8px — Cursor CTA radius; cards derive ~12px from radius-xl */
+
+  /* Cursor raw tokens (for data-viz / non-shadcn surfaces). */
+  --canvas: #f7f7f4;
+  --canvas-soft: #fafaf7;
+  --ink: #26251e;
+  --body: #5a5852;
+  --muted-ink: #807d72;
+  --hairline: #e6e5e0;
+  --surface-strong: #e6e5e0;
+  --cursor-orange: #f54e00;
+
+  /* shadcn semantic tokens mapped to the Cursor palette. */
+  --background: #f7f7f4;
+  --foreground: #26251e;
+  --card: #ffffff;
+  --card-foreground: #26251e;
+  --popover: #ffffff;
+  --popover-foreground: #26251e;
+  --primary: #f54e00;
+  --primary-foreground: #ffffff;
+  --secondary: #e6e5e0;
+  --secondary-foreground: #26251e;
+  --muted: #efeee8;
+  --muted-foreground: #807d72;
+  --accent: #efeee8;
+  --accent-foreground: #26251e;
+  --destructive: #cf2d56;
+  --border: #e6e5e0;
+  --input: #e6e5e0;
+  --ring: #f54e00;
+
+  /* Pastel categorical palette (Cursor timeline signature). */
+  --chart-1: #9fbbe0; /* blue  */
+  --chart-2: #c0a8dd; /* lavender */
+  --chart-3: #9fc9a2; /* mint  */
+  --chart-4: #dfa88f; /* peach */
+  --chart-5: #c08532; /* gold  */
+
+  --sidebar: #fafaf7;
+  --sidebar-foreground: #26251e;
+  --sidebar-primary: #f54e00;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efeee8;
+  --sidebar-accent-foreground: #26251e;
+  --sidebar-border: #e6e5e0;
+  --sidebar-ring: #f54e00;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius-sm: calc(var(--radius) * 0.75); /* 6px */
+  --radius-md: var(--radius); /* 8px */
+  --radius-lg: calc(var(--radius) * 1.5); /* 12px — cards */
+  --radius-xl: calc(var(--radius) * 1.5); /* 12px */
+  --radius-2xl: calc(var(--radius) * 2); /* 16px */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/40;
+  }
+  html {
+    @apply font-sans;
+    background-color: var(--background);
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  code,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono), "JetBrains Mono", monospace;
+  }
+}
+
+/* Editorial display: weight 400, tight negative tracking (Inter substitute for CursorGothic). */
+.display {
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--cursor-orange) 22%, transparent);
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes barRise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.35s ease-out both;
+}

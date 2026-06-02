@@ -65,7 +65,7 @@ cd <repo-name>
 pip install -r requirements_app.txt
 ```
 
-### 3. Download LAION-CLAP Model (~600 MB)
+### 3. Download LAION-CLAP Model (~1.78 GB)
 
 Simpan ke `data/input/630k-audioset-fusion-best.pt`
 
@@ -107,17 +107,58 @@ streamlit run app.py
 
 Buka browser di: **http://localhost:8501**
 
+> Streamlit app (`app.py`) tetap tersedia sebagai versi legacy/fallback.
+
+---
+
+## 🖥️ Frontend Modern (Next.js + FastAPI) — Direkomendasikan
+
+UI modern, responsif (mobile-friendly), dan dapat di-styling penuh. Logika ML
+yang sama (`classifier.py`) dipakai ulang lewat API FastAPI; frontend dibuat
+dengan Next.js. Butuh **dua proses** berjalan bersamaan.
+
+**Terminal 1 — Backend (FastAPI):**
+```bash
+pip install -r requirements_api.txt
+uvicorn api:app --port 8000
+```
+Endpoint utama: `GET /api/health`, `/api/methods`, `/api/metrics`,
+`/api/categories`, dan `POST /api/classify`. Model LAION-CLAP dimuat sekali saat
+startup (~30 detik).
+
+**Terminal 2 — Frontend (Next.js):**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Buka browser di: **http://localhost:3000**
+
+> Base URL backend dikonfigurasi via `frontend/.env.local`
+> (`NEXT_PUBLIC_API_BASE`, default `http://localhost:8000`).
+
+```
+Browser (Next.js, :3000)  →  FastAPI (api.py, :8000)  →  classifier.py  →  LAION-CLAP
+```
+
 ---
 
 ## 📁 Struktur Project
 
 ```
-├── app.py                  ← Streamlit web app (entry point)
-├── classifier.py           ← Logic klasifikasi (wrapper dari demo.py)
+├── api.py                  ← Backend FastAPI (membungkus classifier.py)
+├── app.py                  ← Streamlit web app legacy (entry point)
+├── classifier.py           ← Logic klasifikasi (dipakai api.py & app.py)
 ├── common_utils.py         ← Helper dari repo paper (get_clap_model, get_label_map)
 ├── demo.py                 ← Script inferensi CLI dari paper
-├── requirements_app.txt    ← Dependencies untuk web app
+├── evaluate_methods.py     ← Evaluasi ESC-50 + buat artifact Logistic Regression
+├── requirements_app.txt    ← Dependencies Streamlit app
+├── requirements_api.txt    ← Dependencies backend FastAPI
 ├── setup_guide.md          ← Panduan setup lengkap
+├── frontend/               ← Web app modern (Next.js + Tailwind)
+│   ├── src/app/            ← Halaman & layout (App Router)
+│   ├── src/components/     ← Komponen UI (uploader, kartu, chart, tabs)
+│   └── src/lib/            ← API client + tipe
 ├── .streamlit/
 │   └── config.toml         ← Konfigurasi Streamlit
 └── data/

@@ -1,0 +1,8 @@
+# FastAPI backend for the Next.js frontend.
+# Reuses classifier.py + the ML deps already in requirements_app.txt.
+# Install with: pip install -r requirements_api.txt
+
+# fastapi>=0.116 keeps starlette>=0.40 so it can coexist with Streamlit (app.py fallback).
+fastapi>=0.116.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.10
