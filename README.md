@@ -11,14 +11,30 @@
 
 ## 📌 Tentang Project
 
-Project ini mengimplementasikan pendekatan **Proto-LC** dari paper INTERSPEECH 2023 sebagai web aplikasi interaktif. User dapat mengupload file audio, lalu sistem mengklasifikasikannya ke salah satu dari **50 kelas suara ESC-50**.
+Project ini mengimplementasikan sound classification ESC-50 sebagai web aplikasi interaktif. User dapat mengupload file audio, lalu sistem mengklasifikasikannya ke salah satu dari **50 kelas suara ESC-50** dan membandingkan beberapa metode.
 
 **Cara kerja:**
 1. Audio yang diupload di-encode menjadi vektor 512 dimensi menggunakan model **LAION-CLAP**
-2. Vektor tersebut dibandingkan (Euclidean distance) ke **50 prototype** yang sudah pre-computed
-3. Label dengan jarak terkecil = prediksi kelas
+2. Vektor tersebut dipakai oleh beberapa metode pembanding
+3. Label dengan skor tertinggi = prediksi kelas
 
-> ⚡ Tidak ada training, tidak ada fine-tuning — murni inference menggunakan model pre-trained dan prototype pre-computed dari repo paper.
+## Metode Komparasi
+
+| Metode | Jenis | Cara Prediksi |
+|---|---|---|
+| Zero-Shot CLAP | Zero-shot / tanpa training | Cosine similarity antara audio embedding dan text embedding label |
+| Proto-LC | Prototypical / tanpa training | Cosine similarity antara audio embedding dan prototype kelas |
+| Logistic Regression | Supervised | Classifier dilatih pada embedding audio LAION-CLAP |
+
+Untuk membuat hasil evaluasi dataset dan artifact Logistic Regression:
+
+```bash
+python evaluate_methods.py
+```
+
+Output evaluasi disimpan ke `data/demo/comparison_metrics.csv`, `data/demo/comparison_predictions.csv`, dan `data/demo/logreg_esc50_clap.joblib`.
+
+> Zero-Shot CLAP dan Proto-LC berjalan tanpa training tambahan; Logistic Regression membutuhkan training artifact dari `evaluate_methods.py`.
 
 ---
 
@@ -115,10 +131,10 @@ Buka browser di: **http://localhost:8501**
 
 ```
 OFFLINE (sudah dikerjakan peneliti paper):
-  ESC-50 dataset → LAION-CLAP encode → rata-rata per kelas → prototype .pt
+  ESC-50 dataset → LAION-CLAP encode → prototype, text embedding, dan Logistic Regression artifact
 
 ONLINE (saat user pakai app):
-  Upload audio → LAION-CLAP encode → jarak ke 50 prototype → Top-10 prediksi
+  Upload audio → LAION-CLAP encode → 3 metode pembanding → Top-10 prediksi per metode
 ```
 
 ---

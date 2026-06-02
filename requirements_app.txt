@@ -11,6 +11,7 @@ laion-clap
 # ── Deep learning ──
 torch>=1.11.0
 torchaudio
+torchvision
 
 # ── Audio processing ──
 librosa
@@ -19,3 +20,5 @@ soundfile
 # ── Data / utils ──
 numpy
 pandas
+scikit-learn
+joblib
