@@ -24,17 +24,17 @@ Project ini mengimplementasikan sound classification ESC-50 sebagai web aplikasi
 |---|---|---|
 | Zero-Shot CLAP | Zero-shot / tanpa training | Cosine similarity antara audio embedding dan text embedding label |
 | Proto-LC | Prototypical / tanpa training | Cosine similarity antara audio embedding dan prototype kelas |
-| Logistic Regression | Supervised | Classifier dilatih pada embedding audio LAION-CLAP |
+| Supervised MLP | Supervised | Shallow neural network dilatih pada embedding audio LAION-CLAP |
 
-Untuk membuat hasil evaluasi dataset dan artifact Logistic Regression:
+Untuk membuat hasil evaluasi dataset dan artifact Supervised MLP:
 
 ```bash
 python evaluate_methods.py
 ```
 
-Output evaluasi disimpan ke `data/demo/comparison_metrics.csv`, `data/demo/comparison_predictions.csv`, dan `data/demo/logreg_esc50_clap.joblib`.
+Output evaluasi disimpan ke `data/demo/comparison_metrics.csv`, `data/demo/comparison_predictions.csv`, dan `data/demo/mlp_esc50_clap.joblib`.
 
-> Zero-Shot CLAP dan Proto-LC berjalan tanpa training tambahan; Logistic Regression membutuhkan training artifact dari `evaluate_methods.py`.
+> Zero-Shot CLAP dan Proto-LC berjalan tanpa training tambahan; Supervised MLP membutuhkan training artifact dari `evaluate_methods.py`.
 
 ---
 
@@ -151,7 +151,7 @@ Browser (Next.js, :3000)  →  FastAPI (api.py, :8000)  →  classifier.py  → 
 ├── classifier.py           ← Logic klasifikasi (dipakai api.py & app.py)
 ├── common_utils.py         ← Helper dari repo paper (get_clap_model, get_label_map)
 ├── demo.py                 ← Script inferensi CLI dari paper
-├── evaluate_methods.py     ← Evaluasi ESC-50 + buat artifact Logistic Regression
+├── evaluate_methods.py     ← Evaluasi ESC-50 + buat artifact Supervised MLP
 ├── requirements_app.txt    ← Dependencies Streamlit app
 ├── requirements_api.txt    ← Dependencies backend FastAPI
 ├── setup_guide.md          ← Panduan setup lengkap
@@ -172,7 +172,7 @@ Browser (Next.js, :3000)  →  FastAPI (api.py, :8000)  →  classifier.py  → 
 
 ```
 OFFLINE (sudah dikerjakan peneliti paper):
-  ESC-50 dataset → LAION-CLAP encode → prototype, text embedding, dan Logistic Regression artifact
+  ESC-50 dataset → LAION-CLAP encode → prototype, text embedding, dan Supervised MLP artifact
 
 ONLINE (saat user pakai app):
   Upload audio → LAION-CLAP encode → 3 metode pembanding → Top-10 prediksi per metode

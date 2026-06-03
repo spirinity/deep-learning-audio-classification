@@ -16,7 +16,7 @@ export default function Header() {
         Compare{" "}
         <span className="text-foreground">Zero-Shot CLAP</span>,{" "}
         <span className="text-foreground">Proto-LC</span>, and{" "}
-        <span className="text-foreground">Logistic Regression</span> on the
+        <span className="text-foreground">Supervised MLP</span> on the
         50-class ESC-50 sound dataset.
       </p>
     </header>
