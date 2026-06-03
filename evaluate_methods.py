@@ -1,6 +1,6 @@
 """
 Evaluate three ESC-50 sound-classification methods:
-Zero-Shot CLAP, Proto-LC, and Logistic Regression on CLAP embeddings.
+Zero-Shot CLAP, Proto-LC, and Supervised MLP on CLAP embeddings.
 """
 
 import argparse
@@ -23,9 +23,11 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from sklearn.linear_model import LogisticRegression
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.exceptions import ConvergenceWarning
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -38,7 +40,11 @@ EMBEDDING_CACHE_PATH = PROCESSED_DIR / "esc50_clap_embeddings.pt"
 METRICS_PATH = DEMO_DIR / "comparison_metrics.csv"
 PREDICTIONS_PATH = DEMO_DIR / "comparison_predictions.csv"
 LOGREG_MODEL_PATH = DEMO_DIR / "logreg_esc50_clap.joblib"
+MLP_MODEL_PATH = DEMO_DIR / "mlp_esc50_clap.joblib"
 ZERO_SHOT_PROMPT = "This is a sound of {}"
+TEXT_EMBED_BATCH_SIZE = 1
+
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 
 def parse_args():
@@ -47,6 +53,8 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--top-k", type=int, default=35)
     parser.add_argument("--max-iter", type=int, default=1000)
+    parser.add_argument("--mlp-max-iter", type=int, default=300)
+    parser.add_argument("--include-logreg-legacy", action="store_true")
     parser.add_argument("--skip-final-model", action="store_true")
     parser.add_argument("--rebuild-cache", action="store_true")
     return parser.parse_args()
@@ -85,6 +93,8 @@ def load_clap_model():
 
     model = laion_clap.CLAP_Module(enable_fusion=True)
     model.load_ckpt(ckpt=str(MODEL_PATH))
+    if hasattr(model, "model"):
+        model.model.eval()
     return model
 
 
@@ -100,7 +110,7 @@ def encode_audio_files(model, paths, batch_size):
 
 def load_or_create_embeddings(args, df, model=None):
     if args.limit is None and EMBEDDING_CACHE_PATH.exists() and not args.rebuild_cache:
-        payload = torch.load(EMBEDDING_CACHE_PATH, map_location="cpu")
+        payload = torch.load(EMBEDDING_CACHE_PATH, map_location="cpu", weights_only=False)
         return (
             torch.as_tensor(payload["embeddings"], dtype=torch.float32),
             np.asarray(payload["targets"], dtype=np.int64),
@@ -133,8 +143,14 @@ def load_text_embeddings(label_map, model=None):
     if model is None:
         model = load_clap_model()
     prompts = [ZERO_SHOT_PROMPT.format(label_map[idx]) for idx in sorted(label_map)]
-    text_embd = model.get_text_embedding(prompts)
-    return torch.as_tensor(text_embd, dtype=torch.float32)
+    chunks = []
+    with torch.no_grad():
+        for start in range(0, len(prompts), TEXT_EMBED_BATCH_SIZE):
+            batch = prompts[start:start + TEXT_EMBED_BATCH_SIZE]
+            text_embd = model.get_text_embedding(batch)
+            chunks.append(torch.as_tensor(text_embd, dtype=torch.float32).cpu())
+            gc.collect()
+    return torch.cat(chunks, dim=0)
 
 
 def cosine_matrix(left, right):
@@ -164,11 +180,41 @@ def train_logistic(features, targets, max_iter):
     return model
 
 
+def train_mlp(features, targets, max_iter):
+    model = make_pipeline(
+        StandardScaler(),
+        MLPClassifier(
+            hidden_layer_sizes=(512, 256),
+            activation="relu",
+            solver="adam",
+            alpha=1e-4,
+            batch_size=64,
+            learning_rate_init=1e-3,
+            max_iter=max_iter,
+            early_stopping=False,
+            random_state=42,
+        ),
+    )
+    model.fit(features, targets)
+    return model
+
+
 def logistic_scores(model, features, num_classes):
     probabilities = model.predict_proba(features)
     scores = np.zeros((features.shape[0], num_classes), dtype=np.float32)
     classes = getattr(model, "classes_", None)
     if classes is None:
+        classes = model.steps[-1][1].classes_
+    for output_idx, class_idx in enumerate(classes):
+        scores[:, int(class_idx)] = probabilities[:, output_idx]
+    return scores
+
+
+def classifier_scores(model, features, num_classes):
+    probabilities = model.predict_proba(features)
+    scores = np.zeros((features.shape[0], num_classes), dtype=np.float32)
+    classes = getattr(model, "classes_", None)
+    if classes is None and hasattr(model, "steps"):
         classes = model.steps[-1][1].classes_
     for output_idx, class_idx in enumerate(classes):
         scores[:, int(class_idx)] = probabilities[:, output_idx]
@@ -259,16 +305,31 @@ def main():
         predictions.extend(prediction_rows("Proto-LC", fold, scores, test_targets, test_filenames, label_map))
 
         if len(np.unique(train_targets)) >= 2:
+            train_features = train_embeddings.detach().cpu().numpy()
+            test_features = test_embeddings.detach().cpu().numpy()
+
             start = time.perf_counter()
-            logreg = train_logistic(
-                train_embeddings.detach().cpu().numpy(),
+            mlp = train_mlp(
+                train_features,
                 train_targets,
-                args.max_iter,
+                args.mlp_max_iter,
             )
-            scores = logistic_scores(logreg, test_embeddings.detach().cpu().numpy(), num_classes)
+            scores = classifier_scores(mlp, test_features, num_classes)
             elapsed = time.perf_counter() - start
-            metrics.append(metric_row("Logistic Regression", fold, scores, test_targets, elapsed))
-            predictions.extend(prediction_rows("Logistic Regression", fold, scores, test_targets, test_filenames, label_map))
+            metrics.append(metric_row("Supervised MLP", fold, scores, test_targets, elapsed))
+            predictions.extend(prediction_rows("Supervised MLP", fold, scores, test_targets, test_filenames, label_map))
+
+            if args.include_logreg_legacy:
+                start = time.perf_counter()
+                logreg = train_logistic(
+                    train_features,
+                    train_targets,
+                    args.max_iter,
+                )
+                scores = logistic_scores(logreg, test_features, num_classes)
+                elapsed = time.perf_counter() - start
+                metrics.append(metric_row("Logistic Regression", fold, scores, test_targets, elapsed))
+                predictions.extend(prediction_rows("Logistic Regression", fold, scores, test_targets, test_filenames, label_map))
 
     pd.DataFrame(metrics).to_csv(METRICS_PATH, index=False)
     pd.DataFrame(predictions).to_csv(PREDICTIONS_PATH, index=False)
@@ -277,21 +338,32 @@ def main():
 
     if args.skip_final_model:
         print(
-            "Skipped Logistic Regression artifact because --skip-final-model was used. "
-            f"Web app will stay missing until this file exists: {LOGREG_MODEL_PATH}"
+            "Skipped Supervised MLP artifact because --skip-final-model was used. "
+            f"Web app will stay missing until this file exists: {MLP_MODEL_PATH}"
         )
     else:
         import joblib
 
-        final_model = train_logistic(
+        final_model = train_mlp(
             embeddings.detach().cpu().numpy(),
             targets,
-            args.max_iter,
+            args.mlp_max_iter,
         )
-        joblib.dump(final_model, LOGREG_MODEL_PATH)
-        if not LOGREG_MODEL_PATH.exists():
-            raise RuntimeError(f"Failed to write Logistic Regression model: {LOGREG_MODEL_PATH}")
-        print(f"Wrote Logistic Regression model: {LOGREG_MODEL_PATH}")
+        joblib.dump(final_model, MLP_MODEL_PATH)
+        if not MLP_MODEL_PATH.exists():
+            raise RuntimeError(f"Failed to write Supervised MLP model: {MLP_MODEL_PATH}")
+        print(f"Wrote Supervised MLP model: {MLP_MODEL_PATH}")
+
+        if args.include_logreg_legacy:
+            legacy_model = train_logistic(
+                embeddings.detach().cpu().numpy(),
+                targets,
+                args.max_iter,
+            )
+            joblib.dump(legacy_model, LOGREG_MODEL_PATH)
+            if not LOGREG_MODEL_PATH.exists():
+                raise RuntimeError(f"Failed to write Logistic Regression model: {LOGREG_MODEL_PATH}")
+            print(f"Wrote legacy Logistic Regression model: {LOGREG_MODEL_PATH}")
 
 
 if __name__ == "__main__":

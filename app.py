@@ -22,6 +22,7 @@ MODEL_PATH = os.path.join(BASE_DIR, "data", "input", "630k-audioset-fusion-best.
 PROTOTYPE_PATH = os.path.join(BASE_DIR, "data", "demo", "mean_embd_tensor_esc50_clap_zs.pt")
 LABEL_CSV_PATH = os.path.join(BASE_DIR, "data", "labels", "esc50.csv")
 LOGREG_PATH = os.path.join(BASE_DIR, "data", "demo", "logreg_esc50_clap.joblib")
+MLP_PATH = os.path.join(BASE_DIR, "data", "demo", "mlp_esc50_clap.joblib")
 METRICS_PATH = os.path.join(BASE_DIR, "data", "demo", "comparison_metrics.csv")
 TEMP_DIR = os.path.join(BASE_DIR, "temp")
 
@@ -98,12 +99,12 @@ RANK_MEDALS = {1: "1", 2: "2", 3: "3"}
 def load_classifier():
     from classifier import SoundClassifier
 
-    clf = SoundClassifier(MODEL_PATH, PROTOTYPE_PATH, LABEL_CSV_PATH, LOGREG_PATH)
+    clf = SoundClassifier(MODEL_PATH, PROTOTYPE_PATH, LABEL_CSV_PATH, LOGREG_PATH, MLP_PATH)
     clf.load_model()
     clf.load_prototypes()
     clf.load_labels()
     clf.load_text_embeddings()
-    clf.load_logistic_model()
+    clf.load_mlp_model()
     return clf
 
 
@@ -112,7 +113,7 @@ def check_setup() -> dict:
         "LAION-CLAP model": (MODEL_PATH, os.path.exists(MODEL_PATH), True),
         "Prototype embeddings": (PROTOTYPE_PATH, os.path.exists(PROTOTYPE_PATH), True),
         "ESC-50 label CSV": (LABEL_CSV_PATH, os.path.exists(LABEL_CSV_PATH), True),
-        "Logistic Regression artifact": (LOGREG_PATH, os.path.exists(LOGREG_PATH), False),
+        "Supervised MLP artifact": (MLP_PATH, os.path.exists(MLP_PATH), False),
     }
 
 
@@ -136,8 +137,8 @@ def render_setup_status(status: dict):
         })
     st.dataframe(rows, use_container_width=True)
 
-    if not status["Logistic Regression artifact"][1]:
-        st.info("Untuk mengaktifkan Logistic Regression di web app, jalankan `python evaluate_methods.py`, lalu restart Streamlit.")
+    if not status["Supervised MLP artifact"][1]:
+        st.info("Untuk mengaktifkan Supervised MLP di web app, jalankan `python evaluate_methods.py`, lalu restart Streamlit.")
 
 
 def build_rank_chart(results: list) -> go.Figure:
@@ -213,6 +214,7 @@ def render_evaluation_metrics():
         return
 
     metrics = pd.read_csv(METRICS_PATH)
+    metrics = metrics[metrics["method"].isin(["Zero-Shot CLAP", "Proto-LC", "Supervised MLP"])]
     if metrics.empty:
         st.warning("comparison_metrics.csv kosong.")
         return
@@ -272,7 +274,7 @@ def main():
     st.markdown("""
     <div class="main-header">
         <div class="main-title">Sound Classifier Comparison</div>
-        <div class="main-subtitle">Zero-Shot CLAP vs Proto-LC vs Logistic Regression on ESC-50</div>
+        <div class="main-subtitle">Zero-Shot CLAP vs Proto-LC vs Supervised MLP on ESC-50</div>
         <span class="paper-badge">INTERSPEECH 2023 · LAION-CLAP · ESC-50</span>
     </div>
     """, unsafe_allow_html=True)
@@ -363,8 +365,8 @@ def main():
 
             st.markdown("---")
             st.markdown('<div class="section-label">Method Comparison Results</div>', unsafe_allow_html=True)
-            if "Logistic Regression" not in method_results:
-                st.info("Logistic Regression belum tersedia. Jalankan `python evaluate_methods.py`, lalu restart Streamlit.")
+            if "Supervised MLP" not in method_results:
+                st.info("Supervised MLP belum tersedia. Jalankan `python evaluate_methods.py`, lalu restart Streamlit.")
 
             render_prediction_cards(method_results)
             st.caption(f"Processed in {elapsed:.2f}s. CLAP audio embedding dihitung sekali, lalu dipakai oleh semua metode.")

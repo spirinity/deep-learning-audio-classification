@@ -15,7 +15,7 @@ pip install -r requirements_app.txt
 
 ---
 
-## Step 2: Download LAION-CLAP model (~600 MB)
+## Step 2: Download LAION-CLAP model (~1.78 GB)
 
 The model must be placed at `data/input/630k-audioset-fusion-best.pt`.
 
@@ -49,7 +49,7 @@ audio_text_proto/
 ├── requirements_app.txt
 ├── data/
 │   ├── input/
-│   │   ├── 630k-audioset-fusion-best.pt   ✅ ~600 MB (from step 2)
+│   │   ├── 630k-audioset-fusion-best.pt   ✅ ~1.78 GB (from step 2)
 │   │   └── ESC-50/
 │   │       └── meta/
 │   │           └── esc50.csv              ✅ ~95 KB (already present)
