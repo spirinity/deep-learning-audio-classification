@@ -1,16 +1,19 @@
 """
-api.py — FastAPI backend for the ESC-50 sound classification comparison app.
+FastAPI backend for the ESC-50 sound classification comparison app.
 
-Reuses the existing, UI-agnostic SoundClassifier (classifier.py) and exposes it
-over HTTP so a modern frontend (Next.js) can consume it.
+The LAION-CLAP checkpoint is preloaded when the backend starts. The preload runs
+in a background thread so /api/health can report loading and failure states while
+the server stays reachable.
 
 Run:
-    uvicorn api:app --port 8000 --reload
+    uvicorn api:app --port 8000
 """
 
+import gc
 import logging
 import os
 import tempfile
+import threading
 from contextlib import asynccontextmanager
 
 import pandas as pd
@@ -22,12 +25,12 @@ from classifier import ESC50_CATEGORIES, LABEL_TO_CATEGORY, SoundClassifier
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api")
 
-# ── Paths (mirror app.py) ──────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "data", "input", "630k-audioset-fusion-best.pt")
 PROTOTYPE_PATH = os.path.join(BASE_DIR, "data", "demo", "mean_embd_tensor_esc50_clap_zs.pt")
 LABEL_CSV_PATH = os.path.join(BASE_DIR, "data", "labels", "esc50.csv")
 LOGREG_PATH = os.path.join(BASE_DIR, "data", "demo", "logreg_esc50_clap.joblib")
+MLP_PATH = os.path.join(BASE_DIR, "data", "demo", "mlp_esc50_clap.joblib")
 METRICS_PATH = os.path.join(BASE_DIR, "data", "demo", "comparison_metrics.csv")
 
 MAX_FILE_SIZE_MB = 10
@@ -35,7 +38,6 @@ MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 ALLOWED_EXTENSIONS = {".wav", ".mp3"}
 TOP_N = 10
 
-# Single source of truth for category colors (frontend reads these via /api/categories).
 CATEGORY_COLORS = {
     "Animals": "#f78166",
     "Natural soundscapes": "#56d364",
@@ -45,39 +47,26 @@ CATEGORY_COLORS = {
     "Unknown": "#8b949e",
 }
 
-# Required-file flags mirror app.py:check_setup (Logistic Regression is optional).
 REQUIRED_FILES = {
     "LAION-CLAP model": (MODEL_PATH, True),
     "Prototype embeddings": (PROTOTYPE_PATH, True),
     "ESC-50 label CSV": (LABEL_CSV_PATH, True),
-    "Logistic Regression artifact": (LOGREG_PATH, False),
+    "Supervised MLP artifact": (MLP_PATH, False),
 }
 
-# Populated at startup.
-state: dict = {"classifier": None, "load_error": None}
+state: dict = {"classifier": None, "load_error": None, "loading": False}
+load_lock = threading.Lock()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load the LAION-CLAP model + artifacts once at startup (~30s, ~1.78GB)."""
     os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
     os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-    try:
-        logger.info("Loading SoundClassifier (model + prototypes + text + logreg)...")
-        clf = SoundClassifier(MODEL_PATH, PROTOTYPE_PATH, LABEL_CSV_PATH, LOGREG_PATH)
-        clf.load_model()
-        clf.load_prototypes()
-        clf.load_labels()
-        clf.load_text_embeddings()
-        clf.load_logistic_model()
-        state["classifier"] = clf
-        logger.info("Classifier ready. logreg_available=%s", clf.is_logistic_ready())
-    except Exception as e:  # noqa: BLE001 — surface load failure via /api/health
-        state["load_error"] = str(e)
-        logger.exception("Failed to load classifier: %s", e)
+    _start_preload()
     yield
     state["classifier"] = None
+    gc.collect()
 
 
 app = FastAPI(title="Sound Classifier Comparison API", version="1.0.0", lifespan=lifespan)
@@ -93,19 +82,95 @@ app.add_middleware(
 )
 
 
-def _get_classifier() -> SoundClassifier:
+def _rel(path: str) -> str:
+    return os.path.relpath(path, BASE_DIR).replace(os.sep, "/")
+
+
+def _required_files_ok() -> bool:
+    return all(
+        os.path.exists(path)
+        for path, required in REQUIRED_FILES.values()
+        if required
+    )
+
+
+def _preload_classifier() -> None:
+    if not _required_files_ok():
+        state["load_error"] = "Required files are missing."
+        return
+    try:
+        _load_classifier()
+    except HTTPException:
+        pass
+
+
+def _start_preload() -> None:
+    thread = threading.Thread(target=_preload_classifier, name="classifier-preload", daemon=True)
+    thread.start()
+
+
+def _load_classifier() -> SoundClassifier:
+    """Load model and artifacts once."""
     clf = state.get("classifier")
-    if clf is None:
-        raise HTTPException(
-            status_code=503,
-            detail=state.get("load_error") or "Model is still loading. Try again shortly.",
-        )
-    return clf
+    if clf is not None:
+        return clf
+
+    with load_lock:
+        clf = state.get("classifier")
+        if clf is not None:
+            return clf
+
+        state["loading"] = True
+        state["load_error"] = None
+        try:
+            logger.info("Loading SoundClassifier (model + prototypes + text + mlp)...")
+            clf = SoundClassifier(MODEL_PATH, PROTOTYPE_PATH, LABEL_CSV_PATH, LOGREG_PATH, MLP_PATH)
+            clf.load_model()
+            clf.load_prototypes()
+            clf.load_labels()
+            clf.load_text_embeddings()
+            clf.load_mlp_model()
+            state["classifier"] = clf
+            logger.info("Classifier ready. mlp_available=%s", clf.is_mlp_ready())
+            return clf
+        except Exception as exc:
+            state["load_error"] = str(exc)
+            logger.exception("Failed to load classifier: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Failed to load LAION-CLAP model. Close Streamlit or other heavy apps, "
+                    "then retry. If it still fails, increase Windows virtual memory/pagefile. "
+                    f"Error: {exc}"
+                ),
+            ) from exc
+        finally:
+            state["loading"] = False
+            gc.collect()
+
+
+def _method_status_without_loaded_model() -> dict:
+    return {
+        "Zero-Shot CLAP": {
+            "available": False,
+            "description": "Audio embedding dibandingkan langsung dengan text embedding label ESC-50.",
+            "setup": "Preloaded when the backend starts.",
+        },
+        "Proto-LC": {
+            "available": os.path.exists(PROTOTYPE_PATH),
+            "description": "Audio embedding dibandingkan dengan prototype kelas ESC-50 berbasis paper.",
+            "setup": _rel(PROTOTYPE_PATH),
+        },
+        "Supervised MLP": {
+            "available": os.path.exists(MLP_PATH),
+            "description": "Shallow neural network supervised yang dilatih pada embedding audio LAION-CLAP.",
+            "setup": _rel(MLP_PATH),
+        },
+    }
 
 
 @app.get("/api/health")
 def health():
-    """Setup status: which files are present, and whether the model is ready."""
     files = []
     all_required_ok = True
     for name, (path, required) in REQUIRED_FILES.items():
@@ -116,12 +181,13 @@ def health():
             "item": name,
             "required": required,
             "exists": exists,
-            "path": os.path.relpath(path, BASE_DIR).replace(os.sep, "/"),
+            "path": _rel(path),
         })
+
     clf = state.get("classifier")
     return {
         "ready": clf is not None and clf.is_ready(),
-        "loading": clf is None and state.get("load_error") is None,
+        "loading": bool(state.get("loading")),
         "load_error": state.get("load_error"),
         "required_ok": all_required_ok,
         "files": files,
@@ -130,9 +196,8 @@ def health():
 
 @app.get("/api/methods")
 def methods():
-    """Per-method availability + descriptions (Zero-Shot, Proto-LC, Logistic Regression)."""
-    clf = _get_classifier()
-    status = clf.get_method_status()
+    clf = state.get("classifier")
+    status = clf.get_method_status() if clf is not None else _method_status_without_loaded_model()
     return {
         "methods": [
             {
@@ -148,7 +213,6 @@ def methods():
 
 @app.get("/api/categories")
 def categories():
-    """ESC-50 categories, their labels, and the color map used by the UI."""
     return {
         "categories": [
             {"category": cat, "color": CATEGORY_COLORS.get(cat, "#8b949e"), "labels": labels}
@@ -161,12 +225,15 @@ def categories():
 
 @app.get("/api/metrics")
 def metrics():
-    """Mean per-method ESC-50 evaluation metrics from comparison_metrics.csv."""
     if not os.path.exists(METRICS_PATH):
         return {"available": False, "rows": []}
+
     df = pd.read_csv(METRICS_PATH)
+    active_methods = {"Zero-Shot CLAP", "Proto-LC", "Supervised MLP"}
+    df = df[df["method"].isin(active_methods)]
     if df.empty:
         return {"available": False, "rows": []}
+
     summary = (
         df.groupby("method", as_index=False)
         .agg({
@@ -179,21 +246,20 @@ def metrics():
     )
     rows = [
         {
-            "method": r["method"],
-            "accuracy": float(r["accuracy"]),
-            "macro_f1": float(r["macro_f1"]),
-            "top3_accuracy": float(r["top3_accuracy"]),
-            "avg_inference_time_sec": float(r["avg_inference_time_sec"]),
+            "method": row["method"],
+            "accuracy": float(row["accuracy"]),
+            "macro_f1": float(row["macro_f1"]),
+            "top3_accuracy": float(row["top3_accuracy"]),
+            "avg_inference_time_sec": float(row["avg_inference_time_sec"]),
         }
-        for _, r in summary.iterrows()
+        for _, row in summary.iterrows()
     ]
     return {"available": True, "rows": rows}
 
 
 @app.post("/api/classify")
 async def classify(file: UploadFile = File(...)):
-    """Encode one uploaded audio file with CLAP and compare all available methods."""
-    clf = _get_classifier()
+    clf = _load_classifier()
 
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -217,9 +283,8 @@ async def classify(file: UploadFile = File(...)):
 
         try:
             results = clf.classify_all(tmp_path, top_n=TOP_N)
-        except ValueError as e:
-            # Too short / unreadable audio — client error.
-            raise HTTPException(status_code=400, detail=str(e)) from e
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         if tmp_path and os.path.exists(tmp_path):
             try:

@@ -6,11 +6,12 @@ Sound classification utilities for the Streamlit app and method comparison.
 Methods:
   1. Zero-Shot CLAP: audio embedding vs prompted ESC-50 text embeddings
   2. Proto-LC: audio embedding vs pre-computed ESC-50 class prototypes
-  3. Logistic Regression: supervised classifier on LAION-CLAP audio embeddings
+  3. Supervised MLP: shallow neural network on LAION-CLAP audio embeddings
 """
 
 import logging
 import os
+import gc
 from typing import Optional
 
 import librosa
@@ -63,6 +64,7 @@ LABEL_TO_CATEGORY = _build_label_to_category()
 METHOD_DESCRIPTIONS = {
     "Zero-Shot CLAP": "Audio embedding dibandingkan langsung dengan text embedding label ESC-50.",
     "Proto-LC": "Audio embedding dibandingkan dengan prototype kelas ESC-50 berbasis paper.",
+    "Supervised MLP": "Shallow neural network supervised yang dilatih pada embedding audio LAION-CLAP.",
     "Logistic Regression": "Classifier supervised yang dilatih di atas embedding audio LAION-CLAP.",
 }
 
@@ -72,6 +74,7 @@ class SoundClassifier:
 
     TARGET_SR = 48000
     ZERO_SHOT_PROMPT = "This is a sound of {}"
+    TEXT_EMBED_BATCH_SIZE = 1
 
     def __init__(
         self,
@@ -79,17 +82,20 @@ class SoundClassifier:
         prototype_path: str,
         label_csv_path: str,
         logreg_model_path: Optional[str] = None,
+        mlp_model_path: Optional[str] = None,
     ):
         self.model_path = model_path
         self.prototype_path = prototype_path
         self.label_csv_path = label_csv_path
         self.logreg_model_path = logreg_model_path
+        self.mlp_model_path = mlp_model_path
 
         self.model = None
         self.mean_embd = None
         self.label_map = None
         self.text_embd = None
         self.logreg_model = None
+        self.mlp_model = None
 
         self.temp_dir = os.path.join(os.path.dirname(__file__), "temp")
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -109,6 +115,8 @@ class SoundClassifier:
 
             model = laion_clap.CLAP_Module(enable_fusion=True)
             model.load_ckpt(ckpt=self.model_path)
+            if hasattr(model, "model"):
+                model.model.eval()
             self.model = model
             logger.info("LAION-CLAP model loaded successfully.")
         except Exception as e:
@@ -150,12 +158,19 @@ class SoundClassifier:
             self.ZERO_SHOT_PROMPT.format(self.label_map[idx])
             for idx in sorted(self.label_map)
         ]
-        text_embd = self.model.get_text_embedding(prompts)
-        self.text_embd = torch.as_tensor(text_embd, dtype=torch.float32)
+        chunks = []
+        with torch.no_grad():
+            for start in range(0, len(prompts), self.TEXT_EMBED_BATCH_SIZE):
+                batch = prompts[start:start + self.TEXT_EMBED_BATCH_SIZE]
+                text_embd = self.model.get_text_embedding(batch)
+                chunks.append(torch.as_tensor(text_embd, dtype=torch.float32).cpu())
+                gc.collect()
+
+        self.text_embd = torch.cat(chunks, dim=0)
         logger.info("Zero-shot text embeddings loaded.")
 
     def load_logistic_model(self):
-        """Load optional Logistic Regression artifact if it exists."""
+        """Load optional legacy Logistic Regression artifact if it exists."""
         if not self.logreg_model_path or not os.path.exists(self.logreg_model_path):
             self.logreg_model = None
             return
@@ -171,6 +186,23 @@ class SoundClassifier:
         self.logreg_model = joblib.load(self.logreg_model_path)
         logger.info("Logistic Regression model loaded from %s.", self.logreg_model_path)
 
+    def load_mlp_model(self):
+        """Load optional Supervised MLP artifact if it exists."""
+        if not self.mlp_model_path or not os.path.exists(self.mlp_model_path):
+            self.mlp_model = None
+            return
+
+        try:
+            import joblib
+        except ImportError as e:
+            raise RuntimeError(
+                "joblib is required to load Supervised MLP. "
+                "Install requirements_app.txt again."
+            ) from e
+
+        self.mlp_model = joblib.load(self.mlp_model_path)
+        logger.info("Supervised MLP model loaded from %s.", self.mlp_model_path)
+
     def is_ready(self) -> bool:
         return (
             self.model is not None
@@ -183,6 +215,9 @@ class SoundClassifier:
 
     def is_logistic_ready(self) -> bool:
         return self.logreg_model is not None
+
+    def is_mlp_ready(self) -> bool:
+        return self.mlp_model is not None
 
     def check_paths(self) -> dict:
         return {
@@ -203,12 +238,12 @@ class SoundClassifier:
                 "description": METHOD_DESCRIPTIONS["Proto-LC"],
                 "setup": os.path.relpath(self.prototype_path, os.path.dirname(__file__)),
             },
-            "Logistic Regression": {
-                "available": self.is_logistic_ready(),
-                "description": METHOD_DESCRIPTIONS["Logistic Regression"],
+            "Supervised MLP": {
+                "available": self.is_mlp_ready(),
+                "description": METHOD_DESCRIPTIONS["Supervised MLP"],
                 "setup": (
-                    os.path.relpath(self.logreg_model_path, os.path.dirname(__file__))
-                    if self.logreg_model_path
+                    os.path.relpath(self.mlp_model_path, os.path.dirname(__file__))
+                    if self.mlp_model_path
                     else "Run evaluate_methods.py first."
                 ),
             },
@@ -323,6 +358,31 @@ class SoundClassifier:
             "probability",
         )
 
+    def classify_supervised_mlp(self, audio_embd: torch.Tensor, top_n: int = 10) -> list:
+        if self.mlp_model is None:
+            raise RuntimeError(
+                "Supervised MLP model is not available. "
+                "Run evaluate_methods.py to create data/demo/mlp_esc50_clap.joblib."
+            )
+
+        features = audio_embd.detach().cpu().numpy().reshape(1, -1)
+        probabilities = self.mlp_model.predict_proba(features)[0]
+        class_scores = np.zeros(len(self.label_map), dtype=np.float32)
+        classes = getattr(self.mlp_model, "classes_", None)
+        if classes is None and hasattr(self.mlp_model, "steps"):
+            classes = self.mlp_model.steps[-1][1].classes_
+        if classes is None:
+            classes = np.arange(len(probabilities))
+        for class_idx, probability in zip(classes, probabilities):
+            class_scores[int(class_idx)] = float(probability)
+
+        return self._rank_scores(
+            class_scores,
+            top_n,
+            "Supervised MLP",
+            "probability",
+        )
+
     def classify(self, audio_path: str, top_n: int = 10) -> list:
         """Backward-compatible single-method classifier using Proto-LC."""
         if not self.is_ready():
@@ -347,8 +407,8 @@ class SoundClassifier:
             "Proto-LC": self.classify_proto_lc(audio_embd, top_n=top_n),
         }
 
-        if self.logreg_model is not None:
-            results["Logistic Regression"] = self.classify_logistic_regression(
+        if self.mlp_model is not None:
+            results["Supervised MLP"] = self.classify_supervised_mlp(
                 audio_embd,
                 top_n=top_n,
             )

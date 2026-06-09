@@ -49,7 +49,7 @@ export default function Header({ copy, language, onLanguageChange }: Props) {
         {copy.headerPrefix}{" "}
         <span className="text-foreground">Zero-Shot CLAP</span>,{" "}
         <span className="text-foreground">Proto-LC</span>, {copy.headerMiddle}{" "}
-        <span className="text-foreground">Logistic Regression</span>{" "}
+        <span className="text-foreground">Supervised MLP</span>{" "}
         {copy.headerSuffix}
       </p>
     </header>

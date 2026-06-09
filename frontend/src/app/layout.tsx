@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Sound Classifier Comparison",
   description:
-    "Compare Zero-Shot CLAP, Proto-LC, and Logistic Regression on ESC-50 sound classification — INTERSPEECH 2023.",
+    "Compare Zero-Shot CLAP, Proto-LC, and Supervised MLP on ESC-50 sound classification - INTERSPEECH 2023.",
 };
 
 export default function RootLayout({

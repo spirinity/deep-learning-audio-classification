@@ -28,8 +28,8 @@ export const COPY = {
     methodsWork: "How the methods work",
     metricsTitle: "ESC-50 evaluation metrics",
     topPrediction: "Top prediction per method",
-    logregUnavailable: "Logistic Regression is unavailable.",
-    logregEnable:
+    mlpUnavailable: "Supervised MLP is unavailable.",
+    mlpEnable:
       "Run python evaluate_methods.py and restart the backend to enable it.",
     processedIn: "Processed in",
     processedSuffix:
@@ -50,7 +50,7 @@ export const COPY = {
         "The audio embedding is compared directly against ESC-50 label text embeddings.",
       "Proto-LC":
         "The audio embedding is compared with paper-inspired ESC-50 class prototypes.",
-      "Logistic Regression":
+      "Supervised MLP":
         "A supervised classifier trained on top of LAION-CLAP audio embeddings.",
     },
     noMetrics:
@@ -94,8 +94,8 @@ export const COPY = {
     methodsWork: "Cara kerja metode",
     metricsTitle: "Metrik evaluasi ESC-50",
     topPrediction: "Prediksi teratas per metode",
-    logregUnavailable: "Logistic Regression belum tersedia.",
-    logregEnable:
+    mlpUnavailable: "Supervised MLP belum tersedia.",
+    mlpEnable:
       "Jalankan python evaluate_methods.py lalu restart backend untuk mengaktifkannya.",
     processedIn: "Diproses dalam",
     processedSuffix:
@@ -116,7 +116,7 @@ export const COPY = {
         "Audio embedding dibandingkan langsung dengan text embedding label ESC-50.",
       "Proto-LC":
         "Audio embedding dibandingkan dengan prototype kelas ESC-50 berbasis paper.",
-      "Logistic Regression":
+      "Supervised MLP":
         "Classifier supervised yang dilatih di atas embedding audio LAION-CLAP.",
     },
     noMetrics:

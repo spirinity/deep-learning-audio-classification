@@ -22,13 +22,13 @@ export function categoryColor(category: string): string {
 export const METHOD_ORDER = [
   "Zero-Shot CLAP",
   "Proto-LC",
-  "Logistic Regression",
+  "Supervised MLP",
 ] as const;
 
 export const METHOD_COLORS: Record<string, string> = {
   "Zero-Shot CLAP": "#9fbbe0", // blue
   "Proto-LC": "#c0a8dd", // lavender
-  "Logistic Regression": "#9fc9a2", // mint
+  "Supervised MLP": "#9fc9a2", // mint
 };
 
 export function methodColor(method: string): string {

@@ -81,11 +81,10 @@ export default function ClassifierApp() {
         getMetrics()
           .then((m) => !cancelled && setMetrics(m.rows))
           .catch(() => {});
-        if (h.ready) {
-          getMethods()
-            .then((m) => !cancelled && setMethods(m.methods))
-            .catch(() => {});
-        } else if (h.loading) {
+        getMethods()
+          .then((m) => !cancelled && setMethods(m.methods))
+          .catch(() => {});
+        if (!h.ready && h.required_ok && !h.load_error) {
           pollRef.current = setTimeout(poll, 3000);
         }
       } catch (e) {
@@ -115,6 +114,12 @@ export default function ClassifierApp() {
       const resp = await classifyAudio(file);
       setResults(resp.results);
       setElapsed((performance.now() - t0) / 1000);
+      getHealth()
+        .then((h) => setHealth(h))
+        .catch(() => {});
+      getMethods()
+        .then((m) => setMethods(m.methods))
+        .catch(() => {});
     } catch (e) {
       setClassifyError(
         e instanceof Error ? e.message : "Classification failed."
@@ -128,7 +133,7 @@ export default function ClassifierApp() {
   const modelLoading = !!health && !health.ready && health.loading;
   const showSetupBanner =
     !!health && (!health.required_ok || !!health.load_error);
-  const hasLogreg = results ? "Logistic Regression" in results : true;
+  const hasMlp = results ? "Supervised MLP" in results : true;
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
@@ -230,11 +235,11 @@ export default function ClassifierApp() {
         <section className="mt-12 flex flex-col gap-10">
           <div>
             <SectionLabel>{copy.topPrediction}</SectionLabel>
-            {!hasLogreg && (
+            {!hasMlp && (
               <Alert className="mb-3">
                 <InfoIcon />
-                <AlertTitle>{copy.logregUnavailable}</AlertTitle>
-                <AlertDescription>{copy.logregEnable}</AlertDescription>
+                <AlertTitle>{copy.mlpUnavailable}</AlertTitle>
+                <AlertDescription>{copy.mlpEnable}</AlertDescription>
               </Alert>
             )}
             <ResultCards results={results} />
