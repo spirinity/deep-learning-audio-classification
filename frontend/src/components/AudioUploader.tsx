@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { UPLOAD_LIMITS } from "@/lib/constants";
+import type { Copy } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2Icon, Music2Icon, UploadIcon } from "lucide-react";
+import { Loader2Icon, Music2Icon, SparklesIcon, UploadIcon } from "lucide-react";
 
 interface Props {
+  copy: Copy;
   file: File | null;
   onSelect: (file: File) => void;
   onClear: () => void;
@@ -15,18 +17,19 @@ interface Props {
   disabled: boolean;
 }
 
-function validate(file: File): string | null {
+function validate(file: File, copy: Copy): string | null {
   const name = file.name.toLowerCase();
   const okExt = UPLOAD_LIMITS.acceptExtensions.some((ext) => name.endsWith(ext));
-  if (!okExt) return "Unsupported file type. Use .wav or .mp3.";
+  if (!okExt) return copy.unsupportedType;
   const sizeMb = file.size / (1024 * 1024);
   if (sizeMb > UPLOAD_LIMITS.maxFileSizeMb) {
-    return `File too large (${sizeMb.toFixed(1)} MB). Maximum is ${UPLOAD_LIMITS.maxFileSizeMb} MB.`;
+    return `${copy.fileTooLarge} (${sizeMb.toFixed(1)} MB). ${copy.maximumIs} ${UPLOAD_LIMITS.maxFileSizeMb} MB.`;
   }
   return null;
 }
 
 export default function AudioUploader({
+  copy,
   file,
   onSelect,
   onClear,
@@ -37,22 +40,21 @@ export default function AudioUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(
+    () => (file ? URL.createObjectURL(file) : null),
+    [file]
+  );
 
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const f = files[0];
-    const err = validate(f);
+    const err = validate(f, copy);
     if (err) {
       setLocalError(err);
       return;
@@ -77,21 +79,21 @@ export default function AudioUploader({
             setDragging(false);
             handleFiles(e.dataTransfer.files);
           }}
-          className={`flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-12 text-center transition-colors ${
+          className={`flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors ${
             dragging
-              ? "border-primary bg-primary/5"
-              : "border-border bg-card hover:border-muted-foreground/50 hover:bg-muted/40"
+              ? "border-primary bg-primary/10"
+              : "border-primary/45 bg-primary/5 hover:border-primary hover:bg-primary/10"
           }`}
         >
-          <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <UploadIcon className="size-6" />
+          <span className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <UploadIcon className="size-7" />
           </span>
-          <span className="text-sm font-medium">
-            Drag &amp; drop audio here, or{" "}
-            <span className="text-primary">browse</span>
+          <span className="text-base font-medium">
+            {copy.dropText} <span className="text-primary">{copy.browse}</span>
           </span>
           <span className="text-xs text-muted-foreground">
-            .wav or .mp3 · max {UPLOAD_LIMITS.maxFileSizeMb} MB · min 1 second
+            .wav or .mp3 - {copy.uploadHint} {UPLOAD_LIMITS.maxFileSizeMb} MB -{" "}
+            {copy.minDuration}
           </span>
         </button>
         <input
@@ -111,7 +113,7 @@ export default function AudioUploader({
   const sizeMb = file.size / (1024 * 1024);
 
   return (
-    <Card>
+    <Card className="border-primary/25 bg-primary/5 ring-1 ring-primary/15">
       <CardContent>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -139,7 +141,7 @@ export default function AudioUploader({
                 }}
                 disabled={busy}
               >
-                Clear
+                {copy.clear}
               </Button>
               <Button size="lg" onClick={onClassify} disabled={busy || disabled}>
                 {busy ? (
@@ -148,27 +150,32 @@ export default function AudioUploader({
                       data-icon="inline-start"
                       className="animate-spin"
                     />
-                    Comparing…
+                    {copy.comparing}
                   </>
                 ) : (
-                  "Compare Methods"
+                  <>
+                    <SparklesIcon data-icon="inline-start" />
+                    {copy.compareMethods}
+                  </>
                 )}
               </Button>
             </div>
           </div>
 
           {previewUrl && (
-            <audio
-              controls
-              src={previewUrl}
-              className="w-full"
-              preload="metadata"
-            />
+            <div className="rounded-lg border border-primary/25 bg-card p-2">
+              <audio
+                controls
+                src={previewUrl}
+                className="block w-full"
+                preload="metadata"
+              />
+            </div>
           )}
         </div>
         {disabled && !busy && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Backend model is not ready yet.
+            {copy.backendNotReady}
           </p>
         )}
       </CardContent>

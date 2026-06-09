@@ -1,6 +1,7 @@
 "use client";
 
 import type { MethodResults, RankItem } from "@/lib/types";
+import type { Copy } from "@/lib/i18n";
 import { categoryColor, INK, methodColor, METHOD_ORDER } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +16,7 @@ import {
 
 interface Props {
   results: MethodResults;
+  copy: Copy;
 }
 
 function orderedMethods(results: MethodResults): string[] {
@@ -59,16 +61,16 @@ function RankBars({ items, color }: { items: RankItem[]; color: string }) {
   );
 }
 
-function RankTable({ items }: { items: RankItem[] }) {
+function RankTable({ items, copy }: { items: RankItem[]; copy: Copy }) {
   return (
     <Table className="mt-4">
       <TableHeader>
         <TableRow>
           <TableHead>#</TableHead>
-          <TableHead>Label</TableHead>
-          <TableHead>Score</TableHead>
-          <TableHead>Raw</TableHead>
-          <TableHead>Category</TableHead>
+          <TableHead>{copy.label}</TableHead>
+          <TableHead>{copy.score}</TableHead>
+          <TableHead>{copy.raw}</TableHead>
+          <TableHead>{copy.category}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -102,7 +104,7 @@ function RankTable({ items }: { items: RankItem[] }) {
   );
 }
 
-export default function PerMethodTabs({ results }: Props) {
+export default function PerMethodTabs({ results, copy }: Props) {
   const methods = orderedMethods(results);
 
   return (
@@ -119,7 +121,7 @@ export default function PerMethodTabs({ results }: Props) {
           {methods.map((method) => (
             <TabsContent key={method} value={method} className="pt-4">
               <RankBars items={results[method]} color={methodColor(method)} />
-              <RankTable items={results[method]} />
+              <RankTable items={results[method]} copy={copy} />
             </TabsContent>
           ))}
         </Tabs>

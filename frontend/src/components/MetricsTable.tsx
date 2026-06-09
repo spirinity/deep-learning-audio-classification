@@ -1,4 +1,5 @@
 import type { MetricRow } from "@/lib/types";
+import type { Copy } from "@/lib/i18n";
 import { methodColor } from "@/lib/constants";
 import {
   Table,
@@ -11,19 +12,18 @@ import {
 
 interface Props {
   rows: MetricRow[];
+  copy: Copy;
 }
 
 function pct(v: number) {
   return `${(v * 100).toFixed(1)}%`;
 }
 
-export default function MetricsTable({ rows }: Props) {
+export default function MetricsTable({ rows, copy }: Props) {
   if (!rows.length) {
     return (
       <p className="text-sm text-muted-foreground">
-        No evaluation results yet. Run{" "}
-        <code className="text-primary">python evaluate_methods.py</code> to
-        generate <code>comparison_metrics.csv</code>.
+        {copy.noMetrics}
       </p>
     );
   }
@@ -33,11 +33,11 @@ export default function MetricsTable({ rows }: Props) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Method</TableHead>
-            <TableHead>Accuracy</TableHead>
-            <TableHead>Macro F1</TableHead>
-            <TableHead>Top-3 Acc</TableHead>
-            <TableHead>Avg. inference</TableHead>
+            <TableHead>{copy.metricMethod}</TableHead>
+            <TableHead>{copy.metricAccuracy}</TableHead>
+            <TableHead>{copy.metricMacroF1}</TableHead>
+            <TableHead>{copy.metricTop3}</TableHead>
+            <TableHead>{copy.metricInference}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -67,8 +67,7 @@ export default function MetricsTable({ rows }: Props) {
         </TableBody>
       </Table>
       <p className="mt-3 text-xs text-muted-foreground">
-        Mean across ESC-50 5-fold cross-validation. Inference time is per sample
-        on CLAP embeddings (model encoding excluded).
+        {copy.metricsFootnote}
       </p>
     </div>
   );

@@ -1,14 +1,16 @@
 import type { HealthResponse } from "@/lib/types";
+import type { Copy } from "@/lib/i18n";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2Icon, TriangleAlertIcon, XCircleIcon } from "lucide-react";
 
 interface Props {
   health: HealthResponse;
+  copy: Copy;
 }
 
 // Only shown when required files are missing or the model failed to load.
-export default function SetupStatusBanner({ health }: Props) {
+export default function SetupStatusBanner({ health, copy }: Props) {
   const hasError = !!health.load_error;
 
   return (
@@ -16,8 +18,8 @@ export default function SetupStatusBanner({ health }: Props) {
       <TriangleAlertIcon />
       <AlertTitle>
         {hasError
-          ? "The model failed to load on the backend."
-          : "Some required files are missing on the backend."}
+          ? copy.setupLoadFailed
+          : copy.setupFilesMissing}
       </AlertTitle>
       <AlertDescription>
         {hasError && (
@@ -38,7 +40,7 @@ export default function SetupStatusBanner({ health }: Props) {
                 {f.item}
                 {!f.required && (
                   <Badge variant="secondary" className="text-[10px]">
-                    optional
+                    {copy.optional}
                   </Badge>
                 )}
               </span>
@@ -50,9 +52,7 @@ export default function SetupStatusBanner({ health }: Props) {
         </ul>
 
         <p className="mt-3 text-xs">
-          Start the backend with{" "}
-          <code className="text-foreground">uvicorn api:app --port 8000</code>{" "}
-          and ensure the LAION-CLAP model is downloaded.
+          {copy.setupInstruction}
         </p>
       </AlertDescription>
     </Alert>
