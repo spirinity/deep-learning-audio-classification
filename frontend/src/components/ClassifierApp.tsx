@@ -1,12 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   classifyAudio,
   getHealth,
   getMetrics,
   getMethods,
 } from "@/lib/api";
+import { UPLOAD_LIMITS } from "@/lib/constants";
+import { COPY, type Language } from "@/lib/i18n";
 import type {
   HealthResponse,
   MethodInfo,
@@ -40,7 +48,40 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+const LANGUAGE_CHANGE_EVENT = "classifier-language-change";
+
+function getClientLanguage(): Language {
+  const saved = window.localStorage.getItem("language");
+  if (saved === "en" || saved === "id") return saved;
+
+  return window.navigator.language.toLowerCase().startsWith("id") ? "id" : "en";
+}
+
+function getServerLanguage(): Language {
+  return "id";
+}
+
+function subscribeLanguage(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+  };
+}
+
+function setStoredLanguage(language: Language) {
+  window.localStorage.setItem("language", language);
+  window.dispatchEvent(new Event(LANGUAGE_CHANGE_EVENT));
+}
+
 export default function ClassifierApp() {
+  const language = useSyncExternalStore(
+    subscribeLanguage,
+    getClientLanguage,
+    getServerLanguage
+  );
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [methods, setMethods] = useState<MethodInfo[]>([]);
   const [metrics, setMetrics] = useState<MetricRow[]>([]);
@@ -53,6 +94,10 @@ export default function ClassifierApp() {
   const [elapsed, setElapsed] = useState<number | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copy = COPY[language];
+  const handleLanguageChange = useCallback((nextLanguage: Language) => {
+    setStoredLanguage(nextLanguage);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,62 +167,26 @@ export default function ClassifierApp() {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-      <Header />
+      <Header
+        copy={copy}
+        language={language}
+        onLanguageChange={handleLanguageChange}
+      />
 
-      <div className="mt-10 flex flex-col gap-4">
-        {bootError && !health && (
-          <Alert variant="destructive">
-            <TriangleAlertIcon />
-            <AlertTitle>{bootError}</AlertTitle>
-            <AlertDescription>
-              Start it with{" "}
-              <code className="text-foreground">
-                uvicorn api:app --port 8000
-              </code>
-              . Retrying automatically…
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {showSetupBanner && health && <SetupStatusBanner health={health} />}
-
-        {modelLoading && (
-          <Alert>
-            <Loader2Icon className="animate-spin" />
-            <AlertTitle>Loading the LAION-CLAP model…</AlertTitle>
-            <AlertDescription>
-              First start takes ~30 seconds while the model loads into memory.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {(methods.length > 0 || metrics.length > 0) && (
-          <Card>
-            <CardContent>
-              <Accordion type="multiple">
-                {methods.length > 0 && (
-                  <AccordionItem value="methods">
-                    <AccordionTrigger>How the methods work</AccordionTrigger>
-                    <AccordionContent className="px-0.5 pt-2 pb-6">
-                      <MethodExplanation methods={methods} />
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-                <AccordionItem value="metrics">
-                  <AccordionTrigger>ESC-50 evaluation metrics</AccordionTrigger>
-                  <AccordionContent className="px-0.5 pt-2 pb-6">
-                    <MetricsTable rows={metrics} />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      <section className="mt-12">
-        <SectionLabel>Upload audio</SectionLabel>
+      <section className="mt-10 rounded-2xl border border-primary/25 bg-card px-4 py-5 ring-4 ring-primary/10 sm:px-6 sm:py-6">
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <SectionLabel>{copy.uploadLabel}</SectionLabel>
+            <h2 className="text-xl font-medium text-foreground">
+              {copy.uploadTitle}
+            </h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {copy.uploadMeta} {UPLOAD_LIMITS.maxFileSizeMb} MB
+          </p>
+        </div>
         <AudioUploader
+          copy={copy}
           file={file}
           onSelect={(f) => {
             setFile(f);
@@ -201,45 +210,92 @@ export default function ClassifierApp() {
         )}
       </section>
 
+      <div className="mt-6 flex flex-col gap-4">
+        {bootError && !health && (
+          <Alert variant="destructive">
+            <TriangleAlertIcon />
+            <AlertTitle>{bootError}</AlertTitle>
+            <AlertDescription>
+              Start it with{" "}
+              <code className="text-foreground">
+                uvicorn api:app --port 8000
+              </code>
+              . {copy.backendRetry}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showSetupBanner && health && (
+          <SetupStatusBanner health={health} copy={copy} />
+        )}
+
+        {modelLoading && (
+          <Alert>
+            <Loader2Icon className="animate-spin" />
+            <AlertTitle>{copy.modelLoadingTitle}</AlertTitle>
+            <AlertDescription>{copy.modelLoadingDescription}</AlertDescription>
+          </Alert>
+        )}
+
+        {(methods.length > 0 || metrics.length > 0) && (
+          <Card>
+            <CardContent>
+              <Accordion type="multiple">
+                {methods.length > 0 && (
+                  <AccordionItem value="methods">
+                    <AccordionTrigger>{copy.methodsWork}</AccordionTrigger>
+                    <AccordionContent className="px-0.5 pt-2 pb-6">
+                      <MethodExplanation methods={methods} copy={copy} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+                <AccordionItem value="metrics">
+                  <AccordionTrigger>{copy.metricsTitle}</AccordionTrigger>
+                  <AccordionContent className="px-0.5 pt-2 pb-6">
+                    <MetricsTable rows={metrics} copy={copy} />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       {results && (
         <section className="mt-12 flex flex-col gap-10">
           <div>
-            <SectionLabel>Top prediction per method</SectionLabel>
+            <SectionLabel>{copy.topPrediction}</SectionLabel>
             {!hasMlp && (
               <Alert className="mb-3">
                 <InfoIcon />
-                <AlertTitle>Supervised MLP is unavailable.</AlertTitle>
-                <AlertDescription>
-                  Run <code>python evaluate_methods.py</code> and restart the
-                  backend to enable it.
-                </AlertDescription>
+                <AlertTitle>{copy.mlpUnavailable}</AlertTitle>
+                <AlertDescription>{copy.mlpEnable}</AlertDescription>
               </Alert>
             )}
             <ResultCards results={results} />
             {elapsed !== null && (
               <p className="mt-3 text-center text-xs text-muted-foreground">
-                Processed in {elapsed.toFixed(2)}s · CLAP audio embedding is
-                computed once, then shared across methods.
+                {copy.processedIn} {elapsed.toFixed(2)}s -{" "}
+                {copy.processedSuffix}
               </p>
             )}
           </div>
 
           <div>
-            <SectionLabel>Top-1 confidence comparison</SectionLabel>
+            <SectionLabel>{copy.confidenceComparison}</SectionLabel>
             <MethodComparisonChart results={results} />
           </div>
 
           <div>
-            <SectionLabel>Top-10 rankings by method</SectionLabel>
-            <PerMethodTabs results={results} />
+            <SectionLabel>{copy.topRankings}</SectionLabel>
+            <PerMethodTabs results={results} copy={copy} />
           </div>
         </section>
       )}
 
       <Separator className="mt-16" />
       <footer className="pt-6 pb-2 text-center text-xs text-muted-foreground">
-        Based on “A Multimodal Prototypical Approach for Unsupervised Sound
-        Classification” · INTERSPEECH 2023
+        {copy.footer}
       </footer>
     </main>
   );
