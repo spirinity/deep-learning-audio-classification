@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   classifyAudio,
   getHealth,
@@ -42,15 +48,40 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+const LANGUAGE_CHANGE_EVENT = "classifier-language-change";
+
+function getClientLanguage(): Language {
+  const saved = window.localStorage.getItem("language");
+  if (saved === "en" || saved === "id") return saved;
+
+  return window.navigator.language.toLowerCase().startsWith("id") ? "id" : "en";
+}
+
+function getServerLanguage(): Language {
+  return "id";
+}
+
+function subscribeLanguage(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+  };
+}
+
+function setStoredLanguage(language: Language) {
+  window.localStorage.setItem("language", language);
+  window.dispatchEvent(new Event(LANGUAGE_CHANGE_EVENT));
+}
+
 export default function ClassifierApp() {
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") return "id";
-    const saved = window.localStorage.getItem("language");
-    if (saved === "en" || saved === "id") return saved;
-    return window.navigator.language.toLowerCase().startsWith("id")
-      ? "id"
-      : "en";
-  });
+  const language = useSyncExternalStore(
+    subscribeLanguage,
+    getClientLanguage,
+    getServerLanguage
+  );
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [methods, setMethods] = useState<MethodInfo[]>([]);
   const [metrics, setMetrics] = useState<MetricRow[]>([]);
@@ -64,10 +95,9 @@ export default function ClassifierApp() {
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copy = COPY[language];
-
-  useEffect(() => {
-    window.localStorage.setItem("language", language);
-  }, [language]);
+  const handleLanguageChange = useCallback((nextLanguage: Language) => {
+    setStoredLanguage(nextLanguage);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,7 +170,7 @@ export default function ClassifierApp() {
       <Header
         copy={copy}
         language={language}
-        onLanguageChange={setLanguage}
+        onLanguageChange={handleLanguageChange}
       />
 
       <section className="mt-10 rounded-2xl border border-primary/25 bg-card px-4 py-5 ring-4 ring-primary/10 sm:px-6 sm:py-6">
