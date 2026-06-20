@@ -36,6 +36,19 @@ Output evaluasi disimpan ke `data/demo/comparison_metrics.csv`, `data/demo/compa
 
 > Zero-Shot CLAP dan Proto-LC berjalan tanpa training tambahan; Supervised MLP membutuhkan training artifact dari `evaluate_methods.py`.
 
+### Confusion Matrix per Kategori (5×5)
+
+50 kelas ESC-50 tergabung ke 5 kategori besar. Untuk analisis (apakah model tertukar
+antar-kategori atau hanya salah kelas di dalam kategori yang sama), buat confusion matrix
+5×5 dari hasil prediksi (`comparison_predictions.csv`) — tanpa GPU:
+
+```bash
+python confusion_matrix.py
+```
+
+Output gambar disimpan ke `imgs/confusion_<metode>.png` dan `imgs/confusion_all.png`.
+Versi interaktifnya juga tampil di web (endpoint `GET /api/confusion`).
+
 ---
 
 ## 🎯 50 Kelas Suara (ESC-50)

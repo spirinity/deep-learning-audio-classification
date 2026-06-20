@@ -62,6 +62,13 @@ export const COPY = {
     metricInference: "Avg. inference",
     metricsFootnote:
       "Mean across ESC-50 5-fold cross-validation. Inference time is per sample on CLAP embeddings (model encoding excluded).",
+    confusionTitle: "Per-category confusion matrix",
+    confusionDescription:
+      "ESC-50's 50 classes grouped into 5 broad categories (rows = true, columns = predicted). Off-diagonal cells reveal cross-category confusion; a strong diagonal means errors stay within the same category.",
+    confusionTrue: "True",
+    confusionPredicted: "Predicted",
+    confusionEmpty:
+      "No predictions yet. Run python evaluate_methods.py to generate comparison_predictions.csv.",
     label: "Label",
     score: "Score",
     raw: "Raw",
@@ -128,6 +135,13 @@ export const COPY = {
     metricInference: "Inferensi rata-rata",
     metricsFootnote:
       "Rata-rata dari cross-validation 5-fold ESC-50. Waktu inferensi per sampel pada embedding CLAP (encoding model tidak dihitung).",
+    confusionTitle: "Confusion matrix per kategori",
+    confusionDescription:
+      "50 kelas ESC-50 dikelompokkan ke 5 kategori besar (baris = asli, kolom = prediksi). Sel di luar diagonal menunjukkan kebingungan antar-kategori; diagonal yang kuat berarti kesalahan tetap di dalam kategori yang sama.",
+    confusionTrue: "Asli",
+    confusionPredicted: "Prediksi",
+    confusionEmpty:
+      "Belum ada prediksi. Jalankan python evaluate_methods.py untuk membuat comparison_predictions.csv.",
     label: "Label",
     score: "Skor",
     raw: "Raw",

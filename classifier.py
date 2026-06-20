@@ -39,8 +39,8 @@ ESC50_CATEGORIES = {
         "snoring", "drinking sipping",
     ],
     "Interior/domestic": [
-        "door knock", "mouse click", "keyboard typing",
-        "door wood creak", "can opening", "washing machine",
+        "door wood knock", "mouse click", "keyboard typing",
+        "door wood creaks", "can opening", "washing machine",
         "vacuum cleaner", "clock alarm", "clock tick", "glass breaking",
     ],
     "Exterior/urban": [

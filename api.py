@@ -32,6 +32,7 @@ LABEL_CSV_PATH = os.path.join(BASE_DIR, "data", "labels", "esc50.csv")
 LOGREG_PATH = os.path.join(BASE_DIR, "data", "demo", "logreg_esc50_clap.joblib")
 MLP_PATH = os.path.join(BASE_DIR, "data", "demo", "mlp_esc50_clap.joblib")
 METRICS_PATH = os.path.join(BASE_DIR, "data", "demo", "comparison_metrics.csv")
+PREDICTIONS_PATH = os.path.join(BASE_DIR, "data", "demo", "comparison_predictions.csv")
 
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -255,6 +256,56 @@ def metrics():
         for _, row in summary.iterrows()
     ]
     return {"available": True, "rows": rows}
+
+
+@app.get("/api/confusion")
+def confusion():
+    """Per-category (5x5) confusion matrix per method, built offline from predictions.
+
+    The 50 ESC-50 classes roll up into 5 broad categories; a 50x50 matrix is
+    unreadable, so each true/predicted label is mapped to its parent category.
+    """
+    if not os.path.exists(PREDICTIONS_PATH):
+        return {"available": False, "categories": [], "methods": []}
+
+    df = pd.read_csv(PREDICTIONS_PATH)
+    if df.empty:
+        return {"available": False, "categories": [], "methods": []}
+
+    categories = list(ESC50_CATEGORIES.keys())
+    index = {cat: i for i, cat in enumerate(categories)}
+
+    def to_category(label: str) -> str:
+        return LABEL_TO_CATEGORY.get(str(label).strip(), "Unknown")
+
+    method_order = ["Zero-Shot CLAP", "Proto-LC", "Supervised MLP"]
+    present = [m for m in method_order if m in set(df["method"])]
+
+    methods = []
+    for method in present:
+        sub = df[df["method"] == method]
+        size = len(categories)
+        matrix = [[0 for _ in range(size)] for _ in range(size)]
+        for true_label, pred_label in zip(sub["target_label"], sub["prediction_label"]):
+            i = index.get(to_category(true_label))
+            j = index.get(to_category(pred_label))
+            if i is None or j is None:
+                continue
+            matrix[i][j] += 1
+
+        support = [sum(row) for row in matrix]
+        normalized = [
+            [(matrix[i][j] / support[i] if support[i] else 0.0) for j in range(size)]
+            for i in range(size)
+        ]
+        methods.append({
+            "method": method,
+            "matrix": matrix,
+            "normalized": normalized,
+            "support": support,
+        })
+
+    return {"available": bool(methods), "categories": categories, "methods": methods}
 
 
 @app.post("/api/classify")

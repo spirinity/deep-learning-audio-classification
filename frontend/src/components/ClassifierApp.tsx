@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   classifyAudio,
+  getConfusion,
   getHealth,
   getMetrics,
   getMethods,
@@ -16,6 +17,7 @@ import {
 import { UPLOAD_LIMITS } from "@/lib/constants";
 import { COPY, type Language } from "@/lib/i18n";
 import type {
+  ConfusionResponse,
   HealthResponse,
   MethodInfo,
   MethodResults,
@@ -25,6 +27,7 @@ import Header from "./Header";
 import SetupStatusBanner from "./SetupStatusBanner";
 import MethodExplanation from "./MethodExplanation";
 import MetricsTable from "./MetricsTable";
+import ConfusionMatrix from "./ConfusionMatrix";
 import AudioUploader from "./AudioUploader";
 import ResultCards from "./ResultCards";
 import MethodComparisonChart from "./MethodComparisonChart";
@@ -85,6 +88,7 @@ export default function ClassifierApp() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [methods, setMethods] = useState<MethodInfo[]>([]);
   const [metrics, setMetrics] = useState<MetricRow[]>([]);
+  const [confusion, setConfusion] = useState<ConfusionResponse | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -110,6 +114,9 @@ export default function ClassifierApp() {
         setBootError(null);
         getMetrics()
           .then((m) => !cancelled && setMetrics(m.rows))
+          .catch(() => {});
+        getConfusion()
+          .then((c) => !cancelled && setConfusion(c))
           .catch(() => {});
         getMethods()
           .then((m) => !cancelled && setMethods(m.methods))
@@ -237,7 +244,9 @@ export default function ClassifierApp() {
           </Alert>
         )}
 
-        {(methods.length > 0 || metrics.length > 0) && (
+        {(methods.length > 0 ||
+          metrics.length > 0 ||
+          !!confusion?.available) && (
           <Card>
             <CardContent>
               <Accordion type="multiple">
@@ -255,6 +264,14 @@ export default function ClassifierApp() {
                     <MetricsTable rows={metrics} copy={copy} />
                   </AccordionContent>
                 </AccordionItem>
+                {confusion?.available && (
+                  <AccordionItem value="confusion">
+                    <AccordionTrigger>{copy.confusionTitle}</AccordionTrigger>
+                    <AccordionContent className="px-0.5 pt-2 pb-6">
+                      <ConfusionMatrix data={confusion} copy={copy} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
               </Accordion>
             </CardContent>
           </Card>
