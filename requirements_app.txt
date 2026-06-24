@@ -4,6 +4,7 @@
 # ── Streamlit UI ──
 streamlit>=1.28.0
 plotly>=5.15.0
+matplotlib>=3.7.0
 
 # ── LAION-CLAP (from paper repo) ──
 laion-clap

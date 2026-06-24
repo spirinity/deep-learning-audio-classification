@@ -3,6 +3,7 @@
 
 import type {
   ClassifyResponse,
+  ConfusionResponse,
   HealthResponse,
   MethodsResponse,
   MetricsResponse,
@@ -48,6 +49,10 @@ export function getMethods(signal?: AbortSignal) {
 
 export function getMetrics(signal?: AbortSignal) {
   return getJson<MetricsResponse>("/api/metrics", signal);
+}
+
+export function getConfusion(signal?: AbortSignal) {
+  return getJson<ConfusionResponse>("/api/confusion", signal);
 }
 
 export async function classifyAudio(file: File): Promise<ClassifyResponse> {

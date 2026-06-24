@@ -39,6 +39,19 @@ export interface MetricsResponse {
   rows: MetricRow[];
 }
 
+export interface ConfusionMethod {
+  method: string;
+  matrix: number[][]; // counts, rows = true category, cols = predicted
+  normalized: number[][]; // row-normalized (0..1)
+  support: number[]; // total true samples per category (row sums)
+}
+
+export interface ConfusionResponse {
+  available: boolean;
+  categories: string[];
+  methods: ConfusionMethod[];
+}
+
 export interface RankItem {
   method: string;
   rank: number;
